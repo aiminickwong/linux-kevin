@@ -1,0 +1,43 @@
+config NUMA
+	bool "Numa Memory Allocation and Scheduler Support"
+	depends on SMP
+	select HAVE_MEMBLOCK_NODE_MAP
+	help
+	  Say Y to compile the kernel to support NUMA (Non-Uniform Memory
+	  Access).
+
+	  The kernel will try to allocate memory used by a CPU on the
+	  local memory controller of the CPU and add some more
+	  NUMA awareness to the kernel.
+
+	  If in doubt, say N.
+
+config NODES_SHIFT
+	int "Max num nodes shift(1-10)"
+	range 1 10
+	default "1"
+	depends on NEED_MULTIPLE_NODES
+	help
+	  This option specifies the maximum number of nodes on the target
+	  system. MAX_NUMNODES will be 2^(This value).
+	  If in doubt, use the default.
+
+config OF_NUMA
+	def_bool y
+	depends on NUMA
+
+config USE_PERCPU_NUMA_NODE_ID
+	def_bool y
+	depends on NUMA
+
+config HAVE_SETUP_PER_CPU_AREA
+	def_bool y
+	depends on NUMA
+
+config NEED_PER_CPU_EMBED_FIRST_CHUNK
+	def_bool y
+	depends on NUMA
+
+config HAVE_MEMORYLESS_NODES
+	def_bool y
+	depends on NUMA

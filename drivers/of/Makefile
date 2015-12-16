@@ -6,6 +6,7 @@ obj-$(CONFIG_OF_PROMTREE) += pdt.o
 obj-$(CONFIG_OF_ADDRESS)  += address.o
 obj-$(CONFIG_OF_IRQ)    += irq.o
 obj-$(CONFIG_OF_NET)	+= of_net.o
+obj-$(CONFIG_OF_NUMA)	+= of_numa.o
 obj-$(CONFIG_OF_UNITTEST) += of_unittest.o
 of_unittest-objs := unittest.o unittest-data/testcases.dtb.o
 obj-$(CONFIG_OF_MDIO)	+= of_mdio.o
