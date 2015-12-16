@@ -481,6 +481,7 @@ config HOTPLUG_CPU
 	  Say Y here to experiment with turning CPUs off and on.  CPUs
 	  can be controlled through /sys/devices/system/cpu.
 
+source "drivers/of/Kconfig.numa"
 source kernel/Kconfig.preempt
 
 config UP_LATE_INIT

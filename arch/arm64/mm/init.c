@@ -76,6 +76,7 @@ static phys_addr_t max_zone_dma_phys(void)
 	return min(offset + (1ULL << 32), memblock_end_of_DRAM());
 }
 
+#ifndef CONFIG_NUMA
 static void __init zone_sizes_init(unsigned long min, unsigned long max)
 {
 	struct memblock_region *reg;
@@ -114,6 +115,7 @@ static void __init zone_sizes_init(unsigned long min, unsigned long max)
 
 	free_area_init_node(0, zone_size, min, zhole_size);
 }
+#endif
 
 #ifdef CONFIG_HAVE_ARCH_PFN_VALID
 int pfn_valid(unsigned long pfn)
@@ -123,6 +125,7 @@ int pfn_valid(unsigned long pfn)
 EXPORT_SYMBOL(pfn_valid);
 #endif
 
+#ifndef CONFIG_NUMA
 #ifndef CONFIG_SPARSEMEM
 static void arm64_memory_present(void)
 {
@@ -136,6 +139,7 @@ static void arm64_memory_present(void)
 		memory_present(0, memblock_region_memory_base_pfn(reg),
 			       memblock_region_memory_end_pfn(reg));
 }
+#endif
 #endif
 
 static phys_addr_t memory_limit = (phys_addr_t)ULLONG_MAX;
@@ -183,6 +187,30 @@ void __init arm64_memblock_init(void)
 	memblock_dump_all();
 }
 
+#ifdef CONFIG_NUMA
+void __init bootmem_init(void)
+{
+	unsigned long min, max;
+	unsigned long max_zone_pfns[MAX_NR_ZONES];
+
+	min = PFN_UP(memblock_start_of_DRAM());
+	max = PFN_DOWN(memblock_end_of_DRAM());
+
+	sparse_memory_present_with_active_regions(MAX_NUMNODES);
+	sparse_init();
+
+	memset(max_zone_pfns, 0, sizeof(max_zone_pfns));
+
+	if (IS_ENABLED(CONFIG_ZONE_DMA))
+		max_zone_pfns[ZONE_DMA] = PFN_DOWN(arm64_dma_phys_limit);
+	max_zone_pfns[ZONE_NORMAL] = max;
+
+	free_area_init_nodes(max_zone_pfns);
+
+	high_memory = __va((max << PAGE_SHIFT) - 1) + 1;
+	max_pfn = max_low_pfn = max;
+}
+#else
 void __init bootmem_init(void)
 {
 	unsigned long min, max;
@@ -202,6 +230,7 @@ void __init bootmem_init(void)
 	high_memory = __va((max << PAGE_SHIFT) - 1) + 1;
 	max_pfn = max_low_pfn = max;
 }
+#endif
 
 #ifndef CONFIG_SPARSEMEM_VMEMMAP
 static inline void free_memmap(unsigned long start_pfn, unsigned long end_pfn)

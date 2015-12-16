@@ -4,6 +4,7 @@
 #ifdef CONFIG_SMP
 
 #include <linux/cpumask.h>
+#include <asm/numa.h>
 
 struct cpu_topology {
 	int thread_id;
@@ -23,6 +24,17 @@ extern struct cpu_topology cpu_topology[NR_CPUS];
 void init_cpu_topology(void);
 void store_cpu_topology(unsigned int cpuid);
 const struct cpumask *cpu_coregroup_mask(int cpu);
+
+#ifdef CONFIG_NUMA
+#define parent_node(nid)	(nid)
+#define pcibus_to_node(bus)	NUMA_NO_NODE
+
+#define cpumask_of_node(node) ((node) == -1 ?				\
+			       cpu_all_mask :				\
+			       &node_to_cpumask_map[node])
+
+#define cpumask_of_pcibus(bus)	cpu_online_mask
+#endif
 
 #else
 

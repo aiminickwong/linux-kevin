@@ -51,6 +51,7 @@
 #include <asm/sections.h>
 #include <asm/tlbflush.h>
 #include <asm/ptrace.h>
+#include <asm/numa.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/ipi.h>
@@ -316,6 +317,12 @@ void __init smp_cpus_done(unsigned int max_cpus)
 void __init smp_prepare_boot_cpu(void)
 {
 	set_my_cpu_offset(per_cpu_offset(smp_processor_id()));
+	numa_init();
+}
+
+u64 __init arch_cpu_to_hwid(int cpu)
+{
+	return cpu_logical_map(cpu);
 }
 
 /*

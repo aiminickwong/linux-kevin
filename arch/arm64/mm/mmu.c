@@ -35,6 +35,7 @@
 #include <asm/tlb.h>
 #include <asm/memblock.h>
 #include <asm/mmu_context.h>
+#include <asm/numa.h>
 
 #include "mm.h"
 
@@ -356,6 +357,8 @@ void __init paging_init(void)
 	 */
 	flush_cache_all();
 	flush_tlb_all();
+
+	of_numa_init();
 
 	/* allocate the zero page. */
 	zero_page = early_alloc(PAGE_SIZE);
