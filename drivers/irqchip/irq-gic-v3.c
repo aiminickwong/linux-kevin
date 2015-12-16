@@ -742,20 +742,21 @@ static void bind_local_affinity(unsigned int irq, unsigned long hwirq)
 	if (!desc)
 		return;
 
-#ifdef CONFIG_COPYCAT_NUMA
+#ifdef CONFIG_NUMA
 {
-	u64 boot_dieid;
+	u64 cpu_dieid, irq_dieid;
 	int to_node[] = {0, 1, 3, 2};
 
-	boot_dieid = 0xff & (cpu_logical_map(0) >> 16);
+	irq_dieid = hwirq >> 7;
 
-	/* TC boot */
-	if (boot_dieid == 2) {
-		to_node[0] = 1;
-		to_node[1] = 0;
+	for_each_online_cpu(cpu) {
+		cpu_dieid = 0xff & (cpu_logical_map(cpu) >> 16);
+		if (irq_dieid == cpu_dieid)
+			break;
 	}
 
-	desc->irq_data.node = to_node[hwirq >> 8];
+	desc->irq_data.node = cpu_to_node(cpu);
+
 }
 #endif
 
