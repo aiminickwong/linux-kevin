@@ -401,7 +401,7 @@
 			compatible = "snps,designware-i2c";
 			interrupt-parent = <&mbigen_m3>;
 			reg = <0xa00e0000 0x10000>;
-			interrupts = <8 1>;
+			interrupts = <8 4>;
 			clocks = <&m3_clk>;
 			status = "disabled";
 		};
@@ -412,7 +412,7 @@
 			compatible = "snps,designware-i2c";
 			interrupt-parent = <&mbigen_m3>;
 			reg = <0xa00f0000 0x10000>;
-			interrupts = <9 1>;
+			interrupts = <9 4>;
 			clocks = <&m3_clk>;
 			status = "disabled";
 		};
@@ -423,7 +423,7 @@
 			compatible = "snps,designware-i2c";
 			interrupt-parent = <&mbigen_m3>;
 			reg = <0xa0100000 0x10000>;
-			interrupts = <10 1>;
+			interrupts = <10 4>;
 			clocks = <&m3_clk>;
 			status = "disabled";
 		};
@@ -434,7 +434,7 @@
 			compatible = "snps,designware-i2c";
 			interrupt-parent = <&mbigen_pc>;
 			reg = <0x80320000 0x10000>;
-			interrupts = <158 1>;
+			interrupts = <158 4>;
 			clocks = <&peri_clk>;
 			status = "disabled";
 		};
@@ -445,7 +445,7 @@
 			compatible = "snps,designware-i2c";
 			interrupt-parent = <&mbigen_pc>;
 			reg = <0x80330000 0x10000>;
-			interrupts = <159 1>;
+			interrupts = <159 4>;
 			clocks = <&peri_clk>;
 			status = "disabled";
 		};

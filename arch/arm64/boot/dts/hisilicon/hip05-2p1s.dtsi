@@ -617,7 +617,7 @@
 			compatible = "snps,designware-i2c";
 			interrupt-parent = <&mbigen_m3>;
 			reg = <0xa00f0000 0x10000>;
-			interrupts = <9 1>;
+			interrupts = <9 4>;
 			clocks = <&m3_clk>;
 			status = "disabled";
 		};

@@ -399,9 +399,9 @@
 			compatible = "snps,designware-i2c";
 			interrupt-parent = <&mbigen_m3>;
 			reg = <0xa00e0000 0x10000>;
-			interrupts = <8 1>;
+			interrupts = <8 4>;
 			clocks = <&refclk175mhz>;
-			clock-frequency = <400000>;
+			clock-frequency = <100000>;
 
 			rtc0: ds3231@68 {
 				compatible = "maxim,ds3231";

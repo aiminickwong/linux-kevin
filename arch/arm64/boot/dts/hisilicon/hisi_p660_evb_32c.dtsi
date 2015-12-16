@@ -584,9 +584,9 @@
 			compatible = "snps,designware-i2c";
 			interrupt-parent = <&mbigen_m3>;
 			reg = <0xa00e0000 0x10000>;
-			interrupts = <8 1>;
+			interrupts = <8 4>;
 			clocks = <&m3_clk>;
-			clock-frequency = <400000>;
+			clock-frequency = <100000>;
 		};
 
 		m3_i2c1: i2c@a00f0000 {
@@ -595,9 +595,9 @@
 			compatible = "snps,designware-i2c";
 			interrupt-parent = <&mbigen_m3>;
 			reg = <0xa00f0000 0x10000>;
-			interrupts = <9 1>;
+			interrupts = <9 4>;
 			clocks = <&m3_clk>;
-			clock-frequency = <400000>;
+			clock-frequency = <100000>;
 
 			rtc0: ds3231@68 {
 				compatible = "maxim,ds3231";
@@ -622,9 +622,9 @@
 			compatible = "snps,designware-i2c";
 			interrupt-parent = <&mbigen_m3>;
 			reg = <0xa0100000 0x10000>;
-			interrupts = <10 1>;
+			interrupts = <10 4>;
 			clocks = <&m3_clk>;
-			clock-frequency = <400000>;
+			clock-frequency = <100000>;
 		};
 
 		pc_i2c0: i2c@60320000 {
@@ -633,9 +633,9 @@
 			compatible = "snps,designware-i2c";
 			interrupt-parent = <&mbigen_pc>;
 			reg = <0x60320000 0x10000>;
-			interrupts = <158 1>;
+			interrupts = <158 4>;
 			clocks = <&peri_clk>;
-			clock-frequency = <400000>;
+			clock-frequency = <100000>;
 		};
 
 		pc_i2c1: i2c@60330000 {
@@ -644,9 +644,9 @@
 			compatible = "snps,designware-i2c";
 			interrupt-parent = <&mbigen_pc>;
 			reg = <0x60330000 0x10000>;
-			interrupts = <159 1>;
+			interrupts = <159 4>;
 			clocks = <&peri_clk>;
-			clock-frequency = <400000>;
+			clock-frequency = <100000>;
 		};
 
 		pa_i2c0: i2c@40320000 {
@@ -655,9 +655,9 @@
 			compatible = "snps,designware-i2c";
 			interrupt-parent = <&mbigen_pa>;
 			reg = <0x40320000 0x10000>;
-			interrupts = <158 1>;
+			interrupts = <158 4>;
 			clocks = <&peri_clk>;
-			clock-frequency = <400000>;
+			clock-frequency = <100000>;
 		};
 
 		pa_i2c1: i2c@40330000 {
@@ -666,9 +666,9 @@
 			compatible = "snps,designware-i2c";
 			interrupt-parent = <&mbigen_pa>;
 			reg = <0x40330000 0x10000>;
-			interrupts = <159 1>;
+			interrupts = <159 4>;
 			clocks = <&peri_clk>;
-			clock-frequency = <400000>;
+			clock-frequency = <100000>;
 		};
 	};
 
