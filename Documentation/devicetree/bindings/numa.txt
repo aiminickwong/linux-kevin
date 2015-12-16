@@ -1,0 +1,182 @@
+This article contains two parts:
+1. describe how to configure devicetree nodes of numa.
+2. describe how to add support for numa on a new arch.
+
+Part1:
+There three elements should be configured:
+1) a cpu belong to which node
+2) a memory block belong to which node
+3) the distance of each two nodes
+
+The devicetree nodes of numa should be like below:
+/ {
+	...
+
+	numa-nodes-info {
+		node-name: node-description {
+			mem-ranges = <...>;
+			cpus-list = <...>;
+		};
+
+		nodes-distance {
+			distance-list = <...>;
+		};
+	};
+
+	...
+};
+
+- numa-nodes-info:
+  The name is fixed, should be the level-1 subnode of root node.
+  It can only appeared one time.
+
+- node-name:
+  Named by yourself. Define a node.
+  This will be referred in distance-list = <>.
+
+- node-description:
+  Named by yourself. The description of a node.
+
+- mem-ranges:
+  List the memory ranges that a node covered.
+  The format is <addr size>, <addr size>, the same to memory@0 's reg property.
+
+- cpus-list:
+  List the cpus that a node contains.
+
+- nodes-distance:
+  The name is fixed. It can only appeared one time.
+
+- distance-list:
+  List the distance of each two nodes.
+  The format is <from to distance>, <from to distance>.
+  1)If "from" and "to" are equal, force the distance to be LOCAL_DISTANCE,
+    ignore the value which you configured. In fact, you can omit it.
+  2)If distance[from,to] is missed, but distance[to,from] configured,
+    then distance[from,to] = distance[to,from].
+  3)If both <from to> and <to from> are missed, then treat the distance of them
+    as REMOTE_DISTANCE.
+  4)All distances should more than or equal LOCAL_DISTANCE.
+
+-------------------------------------------------------------------------------
+
+Examples:
+/ {
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x00000000 0x0 0x40000000>,
+		      <0x1 0x00000000 0x1 0x00000000>,
+		      <0x2 0x00000000 0x0 0x40000000>,
+		      <0x2 0x80000000 0x0 0x40000000>;
+	};
+
+	CPU0: cpu@10000 {
+		device_type = "cpu";
+		reg = <0x10000>;
+		...
+	};
+
+	numa-nodes-info {
+		node0: cluster0 {
+			mem-ranges = <0x0 0x00000000 0x1 0x00000000>;
+			cpus-list = <&CPU0 &CPU1>;
+		};
+
+		node1: cluster1 {
+			mem-ranges = <0x1 0x00000000 0x1 0x00000000>;
+			cpus-list = <&CPU2>;
+		};
+
+		node2: cluster2 {
+			mem-ranges = <0x2 0x00000000 0x1 0x00000000>;
+			cpus-list = <&CPU3 &CPU4 &CPU5>;
+		};
+
+		nodes-distance {
+			distance-list = <&node0 &node1 15>, <&node1 &node2 18>;
+		};
+	};
+
+In this example, the chip contains 3 clusters, each cluster treat as a numa
+node. Cluster2(or node2) contains CPU3, CPU4 and CPU5, the memory ranges which
+it covered is: [0x200000000-0x2ffffffff]. But the memory actually exist is:
+<0x2 0x00000000 0x0 0x40000000>, <0x2 0x80000000 0x0 0x40000000>. So that,
+node2 only have 2GB memory.
+
+The missed distances will be filled by default, that is:
+distance-list rule 1):
+distance[&node0, &node0] = LOCAL_DISTANCE
+distance[&node1, &node1] = LOCAL_DISTANCE
+distance[&node2, &node2] = LOCAL_DISTANCE
+
+distance-list rule 2):
+distance[&node1, &node0] = 15
+distance[&node2, &node1] = 18
+
+distance-list rule 3):
+distance[&node0, &node2] = REMOTE_DISTANCE
+distance[&node2, &node0] = REMOTE_DISTANCE
+
+------------------------------------------------------------------------------
+
+Add "numa-node" property in dt-node of a device, can binding the device to a
+specified node. The OF driver will automatically call set_dev_node at initial
+time. So the device driver can direct use dev_to_node function.
+
+For example:
+device-name {
+	...
+	numa-node = <&node0>;
+};
+
+Part2:
+1) Kconfig
+source "drivers/of/Kconfig.numa" in your-arch/Kconfig, if you only use
+devicetree configuration mode.
+
+If many configuration modes coexist, such as XXX, you can copy and modify
+it. For example:
+choice
+	prompt "NUMA configuration mode"
+	default OF_NUMA
+	depends on NUMA
+
+config OF_NUMA
+	def_bool "devicetree"
+
+config XXX_NUMA
+	def_bool "XXX"
+
+endchoice
+
+2) Source code
+Each cpu devicetree node must contains a 'reg' property, like:
+	CPU0: cpu@10000 {
+		device_type = "cpu";
+		reg = <0x10000>;
+		...
+	};
+
+Provide function arch_cpu_to_hwid, like:
+u64 __init arch_cpu_to_hwid(int cpu)
+{
+	/*
+	 * return the value of 'reg' property. cpu is the logical id of &CPU0
+	 * /
+}
+
+Provide head file <asm/numa.h>, like:
+#ifdef CONFIG_OF_NUMA
+#include <linux/of_numa.h>
+
+extern u64 arch_cpu_to_hwid(int cpu);
+#else
+#define of_numa_init()			do { } while (0)
+#define numa_init()			do { } while (0)
+#endif
+
+Make sure the following sequence:
+create mapping --> of_numa_init --> free_area_init_nodes
