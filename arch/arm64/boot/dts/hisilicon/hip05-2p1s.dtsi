@@ -613,8 +613,6 @@
 			reg = <0xa00f0000 0x10000>;
 			interrupts = <9 1>;
 			clocks = <&m3_clk>;
-			hisilicon,sysreg-phandle = <&m3_sysctl>;
-			hisilicon,reset-cfg = <1 0xa40 0x5a20 0xa44>;
 			status = "disabled";
 		};
 
