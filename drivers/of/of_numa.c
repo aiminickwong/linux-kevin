@@ -49,7 +49,6 @@ struct numa_info {
 	phandle node_phandle[MAX_NUMNODES];
 };
 
-static int found __initdata;
 static int next_nid __initdata;
 static struct numa_info numa_info;
 static int nodes_distance[MAX_NUMNODES][MAX_NUMNODES];
@@ -276,7 +275,7 @@ static void __init numa_register_memblks(void)
 	int i;
 	struct numa_meminfo *meminfo;
 
-	if (!found) {
+	if (!numa_info.nr_blks) {
 		meminfo = &numa_info.meminfo[numa_info.nr_blks++];
 		meminfo->base = 0;
 		meminfo->size = -1;
@@ -303,6 +302,7 @@ static int __init early_init_dt_scan_numa_info(unsigned long node,
 						const char *uname,
 						int depth, void *data)
 {
+	static int found;
 	static unsigned long distance_node;
 
 	if (!found && (depth == 1) && !strcmp(uname, "numa-nodes-info")) {
@@ -362,8 +362,13 @@ static int __init early_init_dt_scan_cpu_info(unsigned long node,
 		return 0;
 	hwid = of_read_number(reg, (len / sizeof(__be32)));
 
-	if (!found) {
+	if (!numa_info.nr_blks) {
 		struct numa_cpuinfo *cpuinfo;
+
+		if (numa_info.nr_cpus >= NR_CPUS) {
+			pr_err("too many cpus\n");
+			return 0;
+		}
 
 		cpuinfo = &numa_info.cpuinfo[numa_info.nr_cpus++];
 		cpuinfo->hwid = hwid;
@@ -392,6 +397,8 @@ int __init early_cpu_to_node(int cpu)
 void __init of_numa_init(void)
 {
 	of_scan_flat_dt(early_init_dt_scan_numa_info, NULL);
+	if (!numa_info.nr_blks)
+		numa_info.nr_cpus = 0;
 	of_scan_flat_dt(early_init_dt_scan_cpu_info, NULL);
 	numa_register_memblks();
 }
