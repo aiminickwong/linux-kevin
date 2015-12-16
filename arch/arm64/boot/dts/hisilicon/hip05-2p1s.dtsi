@@ -573,6 +573,12 @@
 			reg = <0x78000000 0x100>;
 		};
 
+		peri_c_subctrl: sub_ctrl_c@0x60000000 {
+			compatible = "hisilicon,peri-c-subctrl", "syscon";
+			reg = <0x60000000 0x10000>;
+		};
+
+
 		uart0: uart@60300000 {
 			compatible = "snps,dw-apb-uart";
 			reg = <0x60300000 0x10000>;

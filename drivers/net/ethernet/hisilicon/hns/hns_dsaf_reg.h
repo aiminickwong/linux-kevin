@@ -10,6 +10,10 @@
 #ifndef _DSAF_REG_H_
 #define _DSAF_REG_H_
 
+#define HNS_DEBUG_RING_IRQ_IDX 55
+#define HNS_SERVICE_RING_IRQ_IDX 59
+#define HNS_DEBUG_RING_IRQ_OFFSET 2
+
 #define DSAF_IRQ_NUM (18)
 
 #define DSAF_MAX_PORT_NUM_PER_CHIP (8)
