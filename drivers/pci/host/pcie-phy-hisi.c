@@ -962,6 +962,92 @@ void pcie_equalization(struct hisi_pcie *pcie)
 	}
 }
 
+static void hisi_pcie_gen3_config(struct hisi_pcie *pcie)
+{
+	u32 port_id;
+	u32 val;
+	u32 current_speed;
+	u32 ltssm_state;
+	u32 timeout = 0;
+	u32 eq = 0;
+	int loop = 100000;
+
+	port_id = pcie->port_id;
+	while (loop)  {
+		udelay(1);
+		val = hisi_pcie_subctrl_readl(pcie,
+			PCIE_SUBCTRL_SYS_STATE4_REG + 0x100 * port_id);
+		current_speed = (val >> 6) & 0x3;
+		if (current_speed == PCIE_GEN3)
+			break;
+		loop--;
+	}
+
+	if (!loop) {
+		dev_info(pcie->pp.dev, "current_speed GEN%u\n",
+			current_speed + 1);
+		return;
+	}
+
+	ltssm_state = val & PCIE_LTSSM_STATE_MASK;
+	/* first,check if link speed is GEN3 */
+	while ((current_speed == PCIE_GEN3) &&
+		(ltssm_state != PCIE_LTSSM_LINKUP_STATE) &&
+		(timeout < 200)) {
+		if ((ltssm_state & 0x30) == 0x20)
+			eq = 1;
+
+		if ((ltssm_state == 0xd) && (eq == 1)) {
+			mdelay(5);
+			val = hisi_pcie_subctrl_readl(pcie,
+			PCIE_SUBCTRL_SYS_STATE4_REG + 0x100 * port_id);
+			ltssm_state = val & PCIE_LTSSM_STATE_MASK;
+			current_speed = (val >> 6) & 0x3;
+			if (ltssm_state == 0xd) {
+				/* pcs init  */
+				dev_info(pcie->pp.dev,
+					"Do symbol align reset rate %u ltssm 0x%x\n",
+					current_speed, ltssm_state);
+				hisi_pcie_pcs_writel(pcie, 0x8000000, 0x74);
+				hisi_pcie_pcs_writel(pcie, 0x8000000, 0x78);
+				hisi_pcie_pcs_writel(pcie, 0x8000000, 0x7c);
+				hisi_pcie_pcs_writel(pcie, 0x8000000, 0x80);
+				hisi_pcie_pcs_writel(pcie, 0x8000000, 0x84);
+				hisi_pcie_pcs_writel(pcie, 0x8000000, 0x88);
+				hisi_pcie_pcs_writel(pcie, 0x8000000, 0x8c);
+				hisi_pcie_pcs_writel(pcie, 0x8000000, 0x90);
+
+				hisi_pcie_pcs_writel(pcie, 0x0, 0x74);
+				hisi_pcie_pcs_writel(pcie, 0x0, 0x78);
+				hisi_pcie_pcs_writel(pcie, 0x0, 0x7c);
+				hisi_pcie_pcs_writel(pcie, 0x0, 0x80);
+				hisi_pcie_pcs_writel(pcie, 0x0, 0x84);
+				hisi_pcie_pcs_writel(pcie, 0x0, 0x88);
+				hisi_pcie_pcs_writel(pcie, 0x0, 0x8c);
+				hisi_pcie_pcs_writel(pcie, 0x0, 0x90);
+			}
+			break;
+		}
+
+		val = hisi_pcie_subctrl_readl(pcie,
+		PCIE_SUBCTRL_SYS_STATE4_REG + 0x100 * port_id);
+		ltssm_state = val & PCIE_LTSSM_STATE_MASK;
+		current_speed = (val >> 6) & 0x3;
+
+		mdelay(1);
+		timeout++;
+	}
+
+	if (timeout >= 200) {
+		dev_info(pcie->pp.dev, "timeout,current_speed:GEN%u\n",
+			current_speed + 1);
+		return;
+	}
+
+	dev_info(pcie->pp.dev, "current_speed GEN%u\n",
+		current_speed + 1);
+}
+
 void hisi_pcie_establish_link(struct hisi_pcie *pcie)
 {
 	u32 val;
@@ -992,6 +1078,9 @@ void hisi_pcie_establish_link(struct hisi_pcie *pcie)
 
 	/* assert LTSSM enable */
 	hisi_pcie_enable_ltssm(pcie, 1);
+
+	/* fix gen3 failed */
+	hisi_pcie_gen3_config(pcie);
 
 	/* check if the link is up or not */
 	while (!dw_pcie_link_up(&pcie->pp)) {
