@@ -360,7 +360,7 @@ static inline void bpf_prog_unlock_ro(struct bpf_prog *fp)
 
 int sk_filter(struct sock *sk, struct sk_buff *skb);
 
-void bpf_prog_select_runtime(struct bpf_prog *fp);
+int bpf_prog_select_runtime(struct bpf_prog *fp);
 void bpf_prog_free(struct bpf_prog *fp);
 
 int bpf_convert_filter(struct sock_filter *prog, int len,

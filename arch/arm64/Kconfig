@@ -20,10 +20,12 @@ config ARM64
 	select ARM_GIC_V3
 	select ARM_GIC_V3_ITS if PCI_MSI
 	select BUILDTIME_EXTABLE_SORT
+	select CLOCKSOURCE_VALIDATE_LAST_CYCLE
 	select CLONE_BACKWARDS
 	select COMMON_CLK
 	select CPU_PM if (SUSPEND || CPU_IDLE)
 	select DCACHE_WORD_ACCESS
+	select EDAC_SUPPORT
 	select GENERIC_ALLOCATOR
 	select GENERIC_CLOCKEVENTS
 	select GENERIC_CLOCKEVENTS_BROADCAST if SMP
@@ -57,8 +59,10 @@ config ARM64
 	select HAVE_DMA_ATTRS
 	select HAVE_DMA_CONTIGUOUS
 	select HAVE_DYNAMIC_FTRACE
+	select HAVE_DYNAMIC_FTRACE_WITH_REGS
 	select HAVE_EFFICIENT_UNALIGNED_ACCESS
 	select HAVE_FTRACE_MCOUNT_RECORD
+	select HAVE_FENTRY
 	select HAVE_FUNCTION_TRACER
 	select HAVE_FUNCTION_GRAPH_TRACER
 	select HAVE_GENERIC_DMA_COHERENT
@@ -68,8 +72,11 @@ config ARM64
 	select HAVE_PERF_EVENTS
 	select HAVE_PERF_REGS
 	select HAVE_PERF_USER_STACK_DUMP
+	select HAVE_REGS_AND_STACK_ACCESS_API
 	select HAVE_RCU_TABLE_FREE
 	select HAVE_SYSCALL_TRACEPOINTS
+	select HAVE_KPROBES
+	select HAVE_KRETPROBES if HAVE_KPROBES
 	select IRQ_DOMAIN
 	select MODULES_USE_ELF_RELA
 	select NO_BOOTMEM
@@ -83,6 +90,7 @@ config ARM64
 	select SPARSE_IRQ
 	select SYSCTL_EXCEPTION_TRACE
 	select HAVE_CONTEXT_TRACKING
+	select HAVE_LIVEPATCH if !DEBUG_SET_MODULE_RONX && !ARM64_ERRATUM_843419
 	help
 	  ARM 64-bit (AArch64) Linux support.
 
@@ -150,6 +158,13 @@ config KERNEL_MODE_NEON
 config FIX_EARLYCON_MEM
 	def_bool y
 
+config ARCH_ENABLE_MEMORY_HOTPLUG
+	def_bool y if SPARSEMEM
+
+config ARCH_MEMORY_PROBE
+	def_bool y
+	depends on MEMORY_HOTPLUG
+
 config PGTABLE_LEVELS
 	int
 	default 2 if ARM64_64K_PAGES && ARM64_VA_BITS_42
@@ -157,9 +172,14 @@ config PGTABLE_LEVELS
 	default 3 if ARM64_4K_PAGES && ARM64_VA_BITS_39
 	default 4 if ARM64_4K_PAGES && ARM64_VA_BITS_48
 
+config ARCH_SUPPORTS_UPROBES
+	def_bool y
+
 source "init/Kconfig"
 
 source "kernel/Kconfig.freezer"
+
+source "kernel/livepatch/Kconfig"
 
 menu "Platform selection"
 
@@ -202,6 +222,66 @@ config ARCH_SEATTLE
 	bool "AMD Seattle SoC Family"
 	help
 	  This enables support for AMD Seattle SOC Family
+config ARCH_HISI
+	bool "Hisilicon SoC Family"
+	select MBI
+	help
+	  This enables support for Hisilicon SOC Family
+
+if ARCH_HISI
+
+menu "Hisilicon platform type"
+config HISI_LLC
+	bool "Hisilicon L3 cache driver"
+	select HISI_DJTAG
+	help
+	  This enables support maintain functions of LLC(L3 cache)
+	  for Hisilicon P660 and Hi1610 SoC.
+
+config ARCH_P660
+	def_bool ARCH_HISI
+	bool "Hisilicon P660 SoC"
+	select HISI_SMMU
+	select HISI_MBIGEN
+	select HISI_LLC if KEXEC
+	help
+	  This enables support for Hisilicon P660 SoC
+
+config 2P
+	bool "Support P660 and Hi1610 2P board"
+	depends on ARCH_P660 || ARCH_Hi1610
+	select P660_2P if ARCH_P660
+	select MM_OUTTER_SHAREABLE
+	help
+	  This add some special handling to support 2P board.
+
+config P660_2P
+	bool "Fix SGI Bugs for ARCH P660"
+	depends on ARCH_P660
+
+config MM_OUTTER_SHAREABLE
+	bool "Enable Outter Shareable For Memory"
+	depends on 2P
+	help
+	  Enable outter shareable for memory.
+
+config ARCH_Hi1610
+	def_bool ARCH_HISI
+	bool "Hisilicon Hi1610 SoC"
+	select ARM_SMMU_V3
+	select HISI_MBIGEN
+	select HISI_LLC if KEXEC
+	help
+	  This enables support for Hisilicon Hi1610 SoC
+
+config ARCH_Hi1382
+	def_bool ARCH_HISI
+	bool "Hisilicon Hi1382 SoC"
+	help
+	  This enables support for Hisilicon Hi1382 SoC
+endmenu
+
+endif
 
 config ARCH_TEGRA
 	bool "NVIDIA Tegra SoC Family"
@@ -529,15 +609,13 @@ config HOTPLUG_CPU
 	  Say Y here to experiment with turning CPUs off and on.  CPUs
 	  can be controlled through /sys/devices/system/cpu.
 
+source "drivers/of/Kconfig.numa"
 source kernel/Kconfig.preempt
+source kernel/Kconfig.hz
 
 config UP_LATE_INIT
        def_bool y
        depends on !SMP
-
-config HZ
-	int
-	default 100
 
 config ARCH_HAS_HOLES_MEMORYMODEL
 	def_bool y if SPARSEMEM
@@ -592,6 +670,27 @@ config SECCOMP
 	  enabled via prctl(PR_SET_SECCOMP), it cannot be disabled
 	  and the task is only allowed to execute a few safe syscalls
 	  defined by each seccomp mode.
+
+config KEXEC
+	depends on (!SMP || PM_SLEEP_SMP)
+	bool "kexec system call"
+	---help---
+	  kexec is a system call that implements the ability to shutdown your
+	  current kernel, and to start another kernel.  It is like a reboot
+	  but it is independent of the system firmware.   And like a reboot
+	  you can start any kernel with it, not just Linux.
+
+config CRASH_DUMP
+	bool "Build kdump crash kernel"
+	help
+	  Generate crash dump after being started by kexec. This should
+	  be normally only set in special crash dump kernels which are
+	  loaded in the main kernel with kexec-tools into a specially
+	  reserved region and then later executed after a crash by
+	  kdump/kexec. The crash dump kernel must be compiled to a
+	  memory address not used by the main kernel.
+
+	  For more details see Documentation/kdump/kdump.txt
 
 config XEN_DOM0
 	def_bool y

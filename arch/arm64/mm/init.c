@@ -34,6 +34,8 @@
 #include <linux/dma-contiguous.h>
 #include <linux/efi.h>
 #include <linux/swiotlb.h>
+#include <linux/kexec.h>
+#include <linux/crash_dump.h>
 
 #include <asm/fixmap.h>
 #include <asm/memory.h>
@@ -66,6 +68,81 @@ static int __init early_initrd(char *p)
 early_param("initrd", early_initrd);
 #endif
 
+#ifdef CONFIG_KEXEC
+/*
+ * reserve_crashkernel() - reserves memory for crash kernel
+ *
+ * This function reserves memory area given in "crashkernel=" kernel command
+ * line parameter. The memory reserved is used by a dump capture kernel when
+ * primary kernel is crashing.
+ */
+static void __init reserve_crashkernel(phys_addr_t limit)
+{
+	unsigned long long crash_size = 0, crash_base = 0;
+	int ret;
+
+	ret = parse_crashkernel(boot_command_line, limit,
+				&crash_size, &crash_base);
+	if (ret)
+		return;
+
+	if (crash_base == 0) {
+		crash_base = memblock_alloc(crash_size, 1 << 20);
+		if (crash_base == 0) {
+			pr_warn("crashkernel allocation failed (size:%llx)\n",
+				crash_size);
+			return;
+		}
+	} else {
+		/* User specifies base address explicitly. Sanity check */
+		if (!memblock_is_region_memory(crash_base, crash_size) ||
+			memblock_is_region_reserved(crash_base, crash_size)) {
+			pr_warn("crashkernel= has wrong address or size\n");
+			return;
+		}
+
+		if (memblock_reserve(crash_base, crash_size)) {
+			pr_warn("crashkernel reservation failed - out of memory\n");
+			return;
+		}
+	}
+
+	pr_info("Reserving %lldMB of memory at %lldMB for crashkernel\n",
+		crash_size >> 20, crash_base >> 20);
+
+	crashk_res.start = crash_base;
+	crashk_res.end = crash_base + crash_size - 1;
+}
+#endif /* CONFIG_KEXEC */
+
+#ifdef CONFIG_CRASH_DUMP
+/*
+ * reserve_elfcorehdr() - reserves memory for elf core header
+ *
+ * This function reserves memory area given in "elfcorehdr=" kernel command
+ * line parameter. The memory reserved is used by a dump capture kernel to
+ * identify the memory used by primary kernel.
+ */
+static void __init reserve_elfcorehdr(void)
+{
+	if (!elfcorehdr_size)
+		return;
+
+	if (memblock_is_region_reserved(elfcorehdr_addr, elfcorehdr_size)) {
+		pr_warn("elfcorehdr reservation failed - memory is in use (0x%llx)\n",
+			elfcorehdr_addr);
+		return;
+	}
+
+	if (memblock_reserve(elfcorehdr_addr, elfcorehdr_size)) {
+		pr_warn("elfcorehdr reservation failed - out of memory\n");
+		return;
+	}
+
+	pr_info("Reserving %lldKB of memory at %lldMB for elfcorehdr\n",
+		elfcorehdr_size >> 10, elfcorehdr_addr >> 20);
+}
+#endif /* CONFIG_CRASH_DUMP */
 /*
  * Return the maximum physical address for ZONE_DMA (DMA_BIT_MASK(32)). It
  * currently assumes that for memory starting above 4G, 32-bit devices will
@@ -77,6 +154,7 @@ static phys_addr_t max_zone_dma_phys(void)
 	return min(offset + (1ULL << 32), memblock_end_of_DRAM());
 }
 
+#ifndef CONFIG_NUMA
 static void __init zone_sizes_init(unsigned long min, unsigned long max)
 {
 	struct memblock_region *reg;
@@ -115,6 +193,7 @@ static void __init zone_sizes_init(unsigned long min, unsigned long max)
 
 	free_area_init_node(0, zone_size, min, zhole_size);
 }
+#endif
 
 #ifdef CONFIG_HAVE_ARCH_PFN_VALID
 int pfn_valid(unsigned long pfn)
@@ -124,6 +203,7 @@ int pfn_valid(unsigned long pfn)
 EXPORT_SYMBOL(pfn_valid);
 #endif
 
+#ifndef CONFIG_NUMA
 #ifndef CONFIG_SPARSEMEM
 static void arm64_memory_present(void)
 {
@@ -137,6 +217,7 @@ static void arm64_memory_present(void)
 		memory_present(0, memblock_region_memory_base_pfn(reg),
 			       memblock_region_memory_end_pfn(reg));
 }
+#endif
 #endif
 
 static phys_addr_t memory_limit = (phys_addr_t)ULLONG_MAX;
@@ -170,6 +251,13 @@ void __init arm64_memblock_init(void)
 		memblock_reserve(__virt_to_phys(initrd_start), initrd_end - initrd_start);
 #endif
 
+#ifdef CONFIG_KEXEC
+	reserve_crashkernel(memory_limit);
+#endif
+#ifdef CONFIG_CRASH_DUMP
+	reserve_elfcorehdr();
+#endif
+
 	early_init_fdt_scan_reserved_mem();
 
 	/* 4GB maximum for 32-bit only capable devices */
@@ -183,6 +271,32 @@ void __init arm64_memblock_init(void)
 	memblock_dump_all();
 }
 
+#ifdef CONFIG_NUMA
+void __init bootmem_init(void)
+{
+	unsigned long min, max;
+	unsigned long max_zone_pfns[MAX_NR_ZONES];
+
+	min = PFN_UP(memblock_start_of_DRAM());
+	max = PFN_DOWN(memblock_end_of_DRAM());
+
+	early_memtest(min << PAGE_SHIFT, max << PAGE_SHIFT);
+
+	sparse_memory_present_with_active_regions(MAX_NUMNODES);
+	sparse_init();
+
+	memset(max_zone_pfns, 0, sizeof(max_zone_pfns));
+
+	if (IS_ENABLED(CONFIG_ZONE_DMA))
+		max_zone_pfns[ZONE_DMA] = PFN_DOWN(arm64_dma_phys_limit);
+	max_zone_pfns[ZONE_NORMAL] = max;
+
+	free_area_init_nodes(max_zone_pfns);
+
+	high_memory = __va((max << PAGE_SHIFT) - 1) + 1;
+	max_pfn = max_low_pfn = max;
+}
+#else
 void __init bootmem_init(void)
 {
 	unsigned long min, max;
@@ -204,6 +318,7 @@ void __init bootmem_init(void)
 	high_memory = __va((max << PAGE_SHIFT) - 1) + 1;
 	max_pfn = max_low_pfn = max;
 }
+#endif
 
 #ifndef CONFIG_SPARSEMEM_VMEMMAP
 static inline void free_memmap(unsigned long start_pfn, unsigned long end_pfn)

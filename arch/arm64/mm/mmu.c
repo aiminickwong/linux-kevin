@@ -28,6 +28,7 @@
 #include <linux/io.h>
 #include <linux/slab.h>
 #include <linux/stop_machine.h>
+#include <linux/bootmem.h>
 
 #include <asm/cputype.h>
 #include <asm/fixmap.h>
@@ -37,6 +38,7 @@
 #include <asm/tlb.h>
 #include <asm/memblock.h>
 #include <asm/mmu_context.h>
+#include <asm/numa.h>
 
 #include "mm.h"
 
@@ -443,6 +445,8 @@ void __init paging_init(void)
 	map_mem();
 	fixup_executable();
 
+	of_numa_init();
+
 	/* allocate the zero page. */
 	zero_page = early_alloc(PAGE_SIZE);
 
@@ -458,6 +462,42 @@ void __init paging_init(void)
 	flush_tlb_all();
 	cpu_set_default_tcr_t0sz();
 }
+
+#ifdef CONFIG_MEMORY_HOTPLUG
+/*
+ * The variables which mark memory end boundary should be updated after memory
+ * hot-added.
+ */
+static void update_end_of_memory_vars(u64 start, u64 size)
+{
+	unsigned long end_pfn = PFN_UP(start + size);
+
+	if (end_pfn > max_pfn) {
+		max_pfn = max_low_pfn = end_pfn;
+		high_memory = __va((end_pfn << PAGE_SHIFT) - 1) + 1;
+	}
+}
+
+int arch_add_memory(int nid, u64 start, u64 size)
+{
+	int ret;
+	struct pglist_data *pgdata = NODE_DATA(nid);
+	struct zone *zone = pgdata->node_zones +
+		zone_for_memory(nid, start, size, ZONE_NORMAL);
+	unsigned long start_pfn = start >> PAGE_SHIFT;
+	unsigned long nr_pages = size >> PAGE_SHIFT;
+
+	create_mapping_late(start, __phys_to_virt(start), size, PAGE_KERNEL);
+
+	ret = __add_pages(nid, zone, start_pfn, nr_pages);
+	if (!ret)
+		ret = memblock_add_node(start, size, nid);
+
+	update_end_of_memory_vars(start, size);
+
+	return ret;
+}
+#endif /* CONFIG_MEMORY_HOTPLUG */
 
 /*
  * Enable the identity mapping to allow the MMU disabling.

@@ -1634,11 +1634,12 @@ F:	drivers/i2c/busses/i2c-cadence.c
 F:	drivers/mmc/host/sdhci-of-arasan.c
 F:	drivers/edac/synopsys_edac.c
 
-ARM SMMU DRIVER
+ARM SMMU DRIVERS
 M:	Will Deacon <will.deacon@arm.com>
 L:	linux-arm-kernel@lists.infradead.org (moderated for non-subscribers)
 S:	Maintained
 F:	drivers/iommu/arm-smmu.c
+F:	drivers/iommu/arm-smmu-v3.c
 F:	drivers/iommu/io-pgtable-arm.c
 
 ARM64 PORT (AARCH64 ARCHITECTURE)
@@ -4677,6 +4678,13 @@ F:	include/linux/hippidevice.h
 F:	include/uapi/linux/if_hippi.h
 F:	net/802/hippi.c
 F:	drivers/net/hippi/
+
+HISILICON FRAMEBUFFER DRIVER
+M:	Rongrong Zou <zourongrong@huawei.com>
+L:	linux-fbdev@vger.kernel.org
+S:	Maintained
+F:	Documentation/fb/intelfb.txt
+F:	drivers/video/fbdev/hisilicon/
 
 HOST AP DRIVER
 M:	Jouni Malinen <j@w1.fi>
